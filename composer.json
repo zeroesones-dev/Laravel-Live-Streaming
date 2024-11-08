@@ -1,0 +1,33 @@
+{
+  "name": "dreamersdesire/laravel-live-streaming",
+  "description": "A Laravel package for live streaming using WebRTC and Socket.io.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Jahidul Islam Jahid",
+      "email": "jsjahidmini@gmail.com"
+    }
+  ],
+  "require": {
+  "dreamersdesire/laravel-live-streaming": "1.0.1",
+    "php": "^8.0",
+    "laravel/framework": "^9.0 || ^10.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "DreamersDesire\\LaravelLiveStreaming\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "DreamersDesire\\LaravelLiveStreaming\\LiveStreamServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "version": "1.0.1"
+}
+
