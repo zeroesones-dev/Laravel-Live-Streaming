@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Broadcast Stream</title>
+    <title>Broadcast Stream with Screen Sharing</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -30,6 +30,11 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
+        .buttons {
+            display: flex;
+            justify-content: center;
+        }
+
         button {
             background-color: #007bff;
             color: white;
@@ -39,7 +44,7 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
-            margin: 10px 0;
+            margin: 10px 5px;
         }
 
         button:hover {
@@ -80,11 +85,21 @@
 </head>
 
 <body>
-    <h1>Broadcast Stream</h1>
-    <video id="local-video" autoplay {{-- muted --}} playsinline></video>
+    <h1>Broadcast Your Stream</h1>
+    <video id="local-video" autoplay playsinline></video>
 
-    <button id="start-stream">Start Streaming</button>
-    <button id="stop-stream" style="display: none;">Stop Streaming</button>
+    <div class="buttons">
+        <button id="start-stream">Start Streaming</button>
+        <button id="stop-stream" style="display: none;">Stop Streaming</button>
+        <button id="share-screen" style="display: none;">Share Screen</button>
+        <button id="stop-screen-share" style="display: none;">Stop Screen Share</button>
+        <button id="toggle-video" style="display: none;">Turn Video Off</button>
+        <button id="toggle-audio" style="display: none;">Mute Audio</button>
+
+        <button id="record-button" style="display: none;">Record Stream</button>
+        <button id="stop-recording-button" style="display: none;">Stop Recording</button>
+        <button id="download-recording" style="display: none;">Download Recording</button>
+    </div>
     <a id="stream-url" href="" target="_blank">View Stream</a>
 
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
@@ -93,10 +108,25 @@
         const localVideo = document.getElementById('local-video');
         const startStreamButton = document.getElementById('start-stream');
         const stopStreamButton = document.getElementById('stop-stream');
+        const shareScreenButton = document.getElementById('share-screen');
+        const stopScreenShareButton = document.getElementById('stop-screen-share');
+        const toggleVideoButton = document.getElementById('toggle-video');
+        const toggleAudioButton = document.getElementById('toggle-audio');
         const streamUrlButton = document.getElementById('stream-url');
+
+        const recordButton = document.getElementById('record-button');
+        const stopRecordingButton = document.getElementById('stop-recording-button');
+        const downloadButton = document.getElementById('download-recording');
 
         let streamId = null;
         let peerConnections = {};
+        let mediaStream = null;
+        let isVideoEnabled = true;
+        let isAudioEnabled = true;
+
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let downloadUrl = null;
 
         function resetPeerConnections() {
             for (const viewerId in peerConnections) {
@@ -118,11 +148,11 @@
         }
 
         async function startBroadcast() {
-            const stream = await navigator.mediaDevices.getUserMedia({
+            mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: true,
                 audio: true
             });
-            localVideo.srcObject = stream;
+            localVideo.srcObject = mediaStream;
 
             streamId = generateStreamId();
             socket.emit('start-stream', {
@@ -134,12 +164,12 @@
             streamUrlButton.href = streamUrl;
             streamUrlButton.style.display = 'inline-block';
 
-            const urlElement = document.createElement('p');
-            urlElement.textContent = `Share this URL with viewers: ${streamUrl}`;
-            document.body.appendChild(urlElement);
-
             startStreamButton.style.display = 'none';
             stopStreamButton.style.display = 'inline';
+            shareScreenButton.style.display = 'inline';
+            toggleVideoButton.style.display = 'inline';
+            toggleAudioButton.style.display = 'inline';
+            recordButton.style.display = 'inline';
 
             socket.on('viewer-join', async (viewerId) => {
                 const peerConnection = new RTCPeerConnection({
@@ -149,7 +179,7 @@
                 });
                 peerConnections[viewerId] = peerConnection;
 
-                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                mediaStream.getTracks().forEach(track => peerConnection.addTrack(track, mediaStream));
 
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
@@ -177,23 +207,11 @@
                 peerConnections[viewerId].setRemoteDescription(new RTCSessionDescription(answer));
             });
 
-            /* socket.on('viewer-ice-candidate', ({
+            socket.on('viewer-ice-candidate', ({
                 candidate,
                 viewerId
             }) => {
                 peerConnections[viewerId].addIceCandidate(new RTCIceCandidate(candidate));
-            }); */
-            socket.on('viewer-ice-candidate', ({
-                candidate,
-                streamId
-            }) => {
-                if (streams[streamId]) {
-                    io.to(streams[streamId].broadcaster).emit('viewer-ice-candidate', {
-                        candidate,
-                        viewerId: socket.id,
-                        streamId
-                    });
-                }
             });
 
             socket.on('viewer-disconnect', (viewerId) => {
@@ -204,10 +222,54 @@
             });
         }
 
+        async function shareScreen() {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true
+                });
+                localVideo.srcObject = screenStream;
+
+                screenStream.getTracks().forEach(track => {
+                    track.onended = () => stopScreenShare();
+                    updateTrack(track);
+                });
+
+                shareScreenButton.style.display = 'none';
+                stopScreenShareButton.style.display = 'inline';
+            } catch (err) {
+                console.error("Error sharing screen:", err);
+            }
+        }
+
+        function stopScreenShare() {
+            localVideo.srcObject = mediaStream;
+            stopScreenShareButton.style.display = 'none';
+            shareScreenButton.style.display = 'inline';
+            mediaStream.getTracks().forEach(track => updateTrack(track));
+        }
+
+        function updateTrack(track) {
+            for (const viewerId in peerConnections) {
+                const sender = peerConnections[viewerId].getSenders().find(s => s.track.kind === track.kind);
+                if (sender) sender.replaceTrack(track);
+            }
+        }
+
+        function toggleVideo() {
+            isVideoEnabled = !isVideoEnabled;
+            mediaStream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
+            toggleVideoButton.textContent = isVideoEnabled ? "Turn Video Off" : "Turn Video On";
+        }
+
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            mediaStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
+            toggleAudioButton.textContent = isAudioEnabled ? "Mute Audio" : "Unmute Audio";
+        }
+
         function stopBroadcast() {
-            if (localVideo.srcObject) {
-                let tracks = localVideo.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
                 localVideo.srcObject = null;
             }
             socket.emit('stop-stream', {
@@ -215,13 +277,75 @@
             });
             startStreamButton.style.display = 'inline';
             stopStreamButton.style.display = 'none';
+            shareScreenButton.style.display = 'none';
+            stopScreenShareButton.style.display = 'none';
+            toggleVideoButton.style.display = 'none';
+            toggleAudioButton.style.display = 'none';
             streamUrlButton.style.display = 'none';
-
             resetPeerConnections();
+        }
+
+        function startRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                console.log("Already recording.");
+                return;
+            }
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(mediaStream, {
+                mimeType: 'video/webm'
+            });
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) recordedChunks.push(event.data);
+            };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, {
+                    type: 'video/webm'
+                });
+                downloadUrl = URL.createObjectURL(blob);
+                downloadButton.href = downloadUrl;
+                downloadButton.download = `recorded_stream_${new Date().toISOString()}.webm`;
+                downloadButton.style.display = 'inline';
+            };
+            mediaRecorder.start();
+            recordButton.style.display = 'none';
+            stopRecordingButton.style.display = 'inline';
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                stopRecordingButton.style.display = 'none';
+                recordButton.style.display = 'inline';
+                if (downloadUrl) {
+                    URL.revokeObjectURL(downloadUrl);
+                    downloadUrl = null;
+                }
+            }
+        }
+
+        function downloadRecordedStream() {
+            if (downloadUrl) {
+                const date = new Date();
+                const formattedDate =
+                    `${date.getFullYear()}${('0' + (date.getMonth() + 1)).slice(-2)}${('0' + date.getDate()).slice(-2)}`;
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = `Live-${formattedDate}.webm`;
+                link.click();
+            } else {
+                console.log("No recording available for download.");
+            }
         }
 
         startStreamButton.addEventListener('click', startBroadcast);
         stopStreamButton.addEventListener('click', stopBroadcast);
+        shareScreenButton.addEventListener('click', shareScreen);
+        stopScreenShareButton.addEventListener('click', stopScreenShare);
+        toggleVideoButton.addEventListener('click', toggleVideo);
+        toggleAudioButton.addEventListener('click', toggleAudio);
+        recordButton.addEventListener('click', startRecording);
+        stopRecordingButton.addEventListener('click', stopRecording);
+        downloadButton.addEventListener('click', downloadRecordedStream);
     </script>
 </body>
 
