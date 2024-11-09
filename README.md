@@ -50,6 +50,15 @@ Run node server (server.js). It will automatically run from `6001` port
   node server.js
 ```
 
+#### Additional Config (Optional)
+
+If you'd like to share your local project over your network, then change socket url from `.env` file.
+For LAN, replace with your ip and socket port must be `6001`
+
+```
+  APP_SOCKET_URL=http://192.168.x.x:6001
+```
+
 That's it. now in browser, open laravel application and see what happens.
 
 ## Author
