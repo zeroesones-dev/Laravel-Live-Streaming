@@ -61,14 +61,6 @@ For LAN, replace with your ip and socket port must be `6001`
 
 That's it. now in browser, open laravel application and see what happens.
 
-## Author
-
-- [@jahid404](https://www.github.com/jahid404)
-
-## License
-
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://raw.githubusercontent.com/jahid404/EasyBreezyBlogs/main/LICENSE)
-
 ## Features
 
 - **Streaming:**
@@ -90,6 +82,14 @@ That's it. now in browser, open laravel application and see what happens.
 
 - **Mic on/off:**
   - Toggle the microphone on or off as needed during the stream, providing control over audio input for smoother communication.
+
+## Author
+
+- [@jahid404](https://www.github.com/jahid404)
+
+## License
+
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://raw.githubusercontent.com/jahid404/EasyBreezyBlogs/main/LICENSE)
 
 ## 🤓 About Me
 
