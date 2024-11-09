@@ -30,7 +30,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .buttons{
+        .buttons {
             display: flex;
             justify-content: center;
         }
@@ -86,7 +86,11 @@
 
 <body>
     <h1>Broadcast Your Stream</h1>
-    <video id="local-video" autoplay muted playsinline></video>
+    <video id="local-video" autoplay playsinline controls></video>
+
+    <div>
+        <span id="stream-timer" style="display: none;">00:00:00</span>
+    </div>
 
     <div class="buttons">
         <button id="start-stream">Start Streaming</button>
@@ -95,12 +99,16 @@
         <button id="stop-screen-share" style="display: none;">Stop Screen Share</button>
         <button id="toggle-video" style="display: none;">Turn Video Off</button>
         <button id="toggle-audio" style="display: none;">Mute Audio</button>
+
+        <button id="record-button" style="display: none;">Record Stream</button>
+        <button id="stop-recording-button" style="display: none;">Stop Recording</button>
+        <button id="download-recording" style="display: none;">Download Recorded Stream</button>
     </div>
     <a id="stream-url" href="" target="_blank">View Stream</a>
 
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
     <script>
-        const socket = io('http://127.0.0.1:6001');
+        const socket = io('{{ env("APP_SOCKET_URL", "http://127.0.0.1:6001") }}');
         const localVideo = document.getElementById('local-video');
         const startStreamButton = document.getElementById('start-stream');
         const stopStreamButton = document.getElementById('stop-stream');
@@ -109,12 +117,22 @@
         const toggleVideoButton = document.getElementById('toggle-video');
         const toggleAudioButton = document.getElementById('toggle-audio');
         const streamUrlButton = document.getElementById('stream-url');
+        const timerDisplay = document.getElementById('stream-timer');
+
+        const recordButton = document.getElementById('record-button');
+        const stopRecordingButton = document.getElementById('stop-recording-button');
+        const downloadButton = document.getElementById('download-recording');
 
         let streamId = null;
         let peerConnections = {};
         let mediaStream = null;
         let isVideoEnabled = true;
         let isAudioEnabled = true;
+        let startTime, timerInterval;
+
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let downloadUrl = null;
 
         function resetPeerConnections() {
             for (const viewerId in peerConnections) {
@@ -157,6 +175,9 @@
             shareScreenButton.style.display = 'inline';
             toggleVideoButton.style.display = 'inline';
             toggleAudioButton.style.display = 'inline';
+            recordButton.style.display = 'inline';
+
+            startRecording();
 
             socket.on('viewer-join', async (viewerId) => {
                 const peerConnection = new RTCPeerConnection({
@@ -232,7 +253,6 @@
             localVideo.srcObject = mediaStream;
             stopScreenShareButton.style.display = 'none';
             shareScreenButton.style.display = 'inline';
-
             mediaStream.getTracks().forEach(track => updateTrack(track));
         }
 
@@ -263,6 +283,7 @@
             socket.emit('stop-stream', {
                 streamId
             });
+
             startStreamButton.style.display = 'inline';
             stopStreamButton.style.display = 'none';
             shareScreenButton.style.display = 'none';
@@ -271,15 +292,109 @@
             toggleAudioButton.style.display = 'none';
             streamUrlButton.style.display = 'none';
 
-            resetPeerConnections();
+            stopRecording();
         }
 
-        startStreamButton.addEventListener('click', startBroadcast);
-        stopStreamButton.addEventListener('click', stopBroadcast);
+        function startRecording() {
+            if (!mediaStream) {
+                console.error("MediaStream not available.");
+                return;
+            }
+
+            console.log("Starting recording...");
+
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                console.log("Already recording.");
+                return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(mediaStream, {
+                mimeType: 'video/webm'
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) recordedChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, {
+                    type: 'video/webm'
+                });
+                downloadUrl = URL.createObjectURL(blob);
+                downloadButton.href = downloadUrl;
+                downloadButton.download = `recorded_stream_${new Date().toISOString()}.webm`;
+                downloadButton.style.display = 'inline';
+            };
+            mediaRecorder.start();
+            recordButton.style.display = 'none';
+            stopRecordingButton.style.display = 'inline';
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                stopRecordingButton.style.display = 'none';
+                recordButton.style.display = 'none';
+
+                if (downloadUrl) {
+                    URL.revokeObjectURL(downloadUrl);
+                    downloadUrl = null;
+                }
+
+                console.log("Recording Stopped.");
+                downloadRecordedStream();
+            }
+        }
+
+        function downloadRecordedStream() {
+            if (downloadUrl) {
+                const date = new Date();
+                const formattedDate =
+                    `${date.getFullYear()}${('0' + (date.getMonth() + 1)).slice(-2)}${('0' + date.getDate()).slice(-2)}`;
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = `Live-${formattedDate}.webm`;
+                link.click();
+            } else {
+                console.log("No recording available for download.");
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const hours = String(Math.floor(elapsed / 3600000)).padStart(2, '0');
+                const minutes = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, '0');
+                const seconds = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, '0');
+                timerDisplay.textContent = `${hours}:${minutes}:${seconds}`;
+            }, 1000);
+            timerDisplay.style.display = 'inline';
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerDisplay.style.display = 'none';
+        }
+
+        startStreamButton.addEventListener('click', () => {
+            startBroadcast();
+            startTimer();
+        });
+
+        stopStreamButton.addEventListener('click', () => {
+            stopBroadcast();
+            stopTimer();
+        });
+
         shareScreenButton.addEventListener('click', shareScreen);
         stopScreenShareButton.addEventListener('click', stopScreenShare);
         toggleVideoButton.addEventListener('click', toggleVideo);
         toggleAudioButton.addEventListener('click', toggleAudio);
+        recordButton.addEventListener('click', startRecording);
+        stopRecordingButton.addEventListener('click', stopRecording);
+        downloadButton.addEventListener('click', downloadRecordedStream);
     </script>
 </body>
 

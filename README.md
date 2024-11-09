@@ -72,7 +72,8 @@ That's it. now in browser, open laravel application and see what happens.
 
 - **Stream Record & Download:**
 
-  - Record live streams as they happen and provide download options, allowing viewers to access sessions on demand.
+  - Record live streams as they happen and provide download options, allowing streamers & viewers to access sessions on demand.
+  - Stream will be automatically record while streamer start broadcast.
 
 - **Video on/off:**
 
