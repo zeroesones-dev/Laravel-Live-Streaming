@@ -16,7 +16,7 @@ A robust, one-to-many live streaming application built with Laravel, featuring W
   php artisan vendor:publish --tag=live-streaming --force
 ```
 
-#### Add Some Routes (`web.php`)
+#### Add Necessary Routes (`web.php`)
 
 ```
   Route::get('/stream', [StreamController::class, 'createStream'])->name('stream.create');
