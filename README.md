@@ -7,7 +7,7 @@ A robust, one-to-many live streaming application built with Laravel, featuring W
 #### Install Package
 
 ```
-  composer require dreamersdesire/laravel-live-streaming
+  composer require dreamersdesire/laravel-live-streaming:dev-main
 ```
 
 #### Publish vendor
