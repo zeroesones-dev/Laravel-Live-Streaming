@@ -89,7 +89,7 @@ That's it. now in browser, open laravel application and see what happens.
 
 ## License
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://raw.githubusercontent.com/jahid404/EasyBreezyBlogs/main/LICENSE)
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://raw.githubusercontent.com/jahid404/Laravel-Live-Streaming/refs/heads/main/LICENSE)
 
 ## 🤓 About Me
 
