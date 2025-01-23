@@ -1,5 +1,5 @@
 {
-  "name": "dreamersdesire/laravel-live-streaming",
+  "name": "zeroesones-dev/laravel-live-streaming",
   "description": "A Laravel package for live streaming using WebRTC and Socket.io.",
   "type": "library",
   "license": "MIT",
