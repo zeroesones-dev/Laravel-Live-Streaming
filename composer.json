@@ -15,13 +15,13 @@
   },
   "autoload": {
     "psr-4": {
-      "ZeroesonesDev\\LaravelLiveStreaming\\": "src/"
+      "DreamersDesire\\LaravelLiveStreaming\\": "src/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-        "ZeroesonesDev\\LaravelLiveStreaming\\LiveStreamServiceProvider"
+        "DreamersDesire\\LaravelLiveStreaming\\LiveStreamServiceProvider"
       ]
     }
   },
